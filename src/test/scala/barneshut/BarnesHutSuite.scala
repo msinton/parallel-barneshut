@@ -1,21 +1,19 @@
 package barneshut
 
-import java.util.concurrent._
-import scala.collection._
-import org.scalatest.FunSuite
 import org.junit.runner.RunWith
+import org.scalatest.FunSuite
 import org.scalatest.junit.JUnitRunner
-import common._
+
+import scala.collection._
 import scala.math._
-import scala.collection.parallel._
-import barneshut.conctrees.ConcBuffer
 
 @RunWith(classOf[JUnitRunner])
 class BarnesHutSuite extends FunSuite {
 
   // test cases for quad tree
 
-import FloatOps._
+  import FloatOps._
+
   test("Empty: center of mass should be the center of the cell") {
     val quad = Empty(51f, 46.3f, 5f)
     assert(quad.massX == 51f, s"${quad.massX} should be 51f")
@@ -59,6 +57,21 @@ import FloatOps._
     assert(quad.total == 1, s"${quad.total} should be 1")
   }
 
+  test("Fork with 4 empty quadrants") {
+    val nw = Empty(17.5f, 27.5f, 5f)
+    val ne = Empty(22.5f, 27.5f, 5f)
+    val sw = Empty(17.5f, 32.5f, 5f)
+    val se = Empty(22.5f, 32.5f, 5f)
+    val quad = Fork(nw, ne, sw, se)
+
+    assert(quad.centerX == 20f, s"${quad.centerX} should be 20f")
+    assert(quad.centerY == 30f, s"${quad.centerY} should be 30f")
+    assert(quad.mass ~= 0f, s"${quad.mass} should be 0f")
+    assert(quad.massX ~= 20f, s"massX: ${quad.massX} should be 20f")
+    assert(quad.massY ~= 30f, s"${quad.massY} should be 30f")
+    assert(quad.total == 0, s"${quad.total} should be 0")
+  }
+
   test("Empty.insert(b) should return a Leaf with only that body") {
     val quad = Empty(51f, 46.3f, 5f)
     val b = new Body(3f, 54f, 46f, 0f, 0f)
@@ -71,6 +84,33 @@ import FloatOps._
         assert(bodies == Seq(b), s"$bodies should contain only the inserted body")
       case _ =>
         fail("Empty.insert() should have returned a Leaf, was $inserted")
+    }
+  }
+
+  test("insert should work correctly on a leaf with center (1,1) and size 2") {
+    val b1 = new Body(1f, 0f, 0f, 0f, 0f)
+    val quad = Leaf(1f, 1f, 2f, Seq(b1))
+    val b2 = new Body(3f, 2f, 0f, 0f, 0f)
+
+    quad.insert(b2) match {
+      case Fork(
+      Leaf(nwCenterX, nwCenterY, nwSize, nwBodies),
+      Leaf(neCenterX, neCenterY, neSize, neBodies),
+      Empty(0.5,1.5,1.0),
+      Empty(1.5,1.5,1.0)
+      ) =>
+
+        assert(nwCenterX == 0.5f)
+        assert(nwCenterY == 0.5f)
+        assert(nwSize == 1)
+        assert(nwBodies == Seq(b1))
+
+        assert(neCenterX == 1.5f)
+        assert(neCenterY == 0.5f)
+        assert(neSize == 1)
+        assert(neBodies == Seq(b2))
+
+      case x => fail(s"Leaf.insert() should have returned a Fork, was $x")
     }
   }
 
@@ -137,5 +177,6 @@ object FloatOps {
           abs(a - b) < precisionThreshold
         }
   }
+
 }
 
